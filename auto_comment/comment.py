@@ -45,9 +45,18 @@ class CommentSender:
             'button[type="submit"]',
             'button[id*="submit"]',
             'button[class*="submit"]',
+            'input[name="submit"]',
+            'input[id*="submit"]',
+            'input[class*="submit"]',
+            'button[name="submit"]',
+            '#submit',
+            '.submit',
+            'input[value*="Post"]',
+            'button:contains("Post")',
             'input[value*="Submit"]',
             'button:contains("Submit")',
-            'button:contains("Post")'
+            'input[value*="Comment"]',
+            'button:contains("Comment")'
         ]
     }
 
@@ -92,21 +101,29 @@ class CommentSender:
         try:
             logging.info("Starting comment submission process...")
             logging.info(f"Target URL: {url}")
-            
+
             logging.info("Initializing Chrome options...")
             options = webdriver.ChromeOptions()
-            options.add_argument('--headless')
+            options.add_argument('--headless=new')  # 使用新版headless模式
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-gpu')
-            
+            # 添加一些伪装参数
+            options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36')
+            options.add_argument('--window-size=1920,1080')
+            # 禁用JavaScript和图片加载可以加快速度
+            options.add_experimental_option('prefs', {
+                'profile.managed_default_content_settings.images': 2,  # 禁用图片
+                'profile.managed_default_content_settings.javascript': 1  # 1启用JS，2禁用JS
+            })
+
             logging.info("Creating Chrome WebDriver instance...")
             driver = webdriver.Chrome(options=options)
             driver.set_page_load_timeout(30)
-            
+
             logging.info("Navigating to target URL...")
             driver.get(url)
-            
+
             logging.info("Waiting for page body to load...")
             WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
@@ -124,19 +141,19 @@ class CommentSender:
                 comment = content
 
             logging.info("Looking for comment form fields...")
-            
+
             logging.info("Searching for name input field...")
             name_field = CommentSender.find_element(driver, CommentSender.COMMON_COMMENT_SELECTORS['name_input'])
-            
+
             logging.info("Searching for email input field...")
             email_field = CommentSender.find_element(driver, CommentSender.COMMON_COMMENT_SELECTORS['email_input'])
-            
+
             logging.info("Searching for website input field...")
             website_field = CommentSender.find_element(driver, CommentSender.COMMON_COMMENT_SELECTORS['website_input'])
-            
+
             logging.info("Searching for comment input field...")
             comment_field = CommentSender.find_element(driver, CommentSender.COMMON_COMMENT_SELECTORS['comment_input'])
-            
+
             logging.info("Searching for submit button...")
             submit_button = CommentSender.find_element(driver, CommentSender.COMMON_COMMENT_SELECTORS['submit_button'])
 
@@ -150,17 +167,17 @@ class CommentSender:
                 raise CommentError("Could not find all required comment form fields")
 
             logging.info("All required form fields found, filling form...")
-            
+
             logging.info("Entering name...")
             name_field.send_keys(name)
-            
+
             logging.info("Entering email...")
             email_field.send_keys(email)
-            
+
             if website_field:
                 logging.info("Entering website...")
                 website_field.send_keys(website)
-            
+
             logging.info("Entering comment...")
             comment_field.send_keys(comment)
 
@@ -172,41 +189,50 @@ class CommentSender:
             time.sleep(delay)
 
             logging.info("Preparing to click submit button...")
-            
-            # 尝试多种方法点击提交按钮
             try:
-                # 方法1：使用JavaScript点击
-                logging.info("Attempting to click submit button using JavaScript...")
-                driver.execute_script("arguments[0].click();", submit_button)
+                # 等待元素可点击
+                logging.info("Waiting for submit button to be clickable...")
+                WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button.get_attribute("css")))
+                )
+
+                # 方法1：直接点击
+                logging.info("Attempting direct click...")
+                submit_button.click()
             except Exception as e:
-                logging.warning(f"JavaScript click failed: {str(e)}")
+                logging.warning(f"Direct click failed: {str(e)}")
                 try:
-                    # 方法2：滚动到元素可见
-                    logging.info("Scrolling to make submit button visible...")
-                    driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
-                    time.sleep(1)  # 等待滚动完成
-                    
-                    # 方法3：移除可能的遮挡元素
-                    logging.info("Attempting to remove potential overlays...")
-                    driver.execute_script("""
-                        var elements = document.querySelectorAll('[data-type="_mgwidget"], .overlay, .modal, .popup');
-                        for(var i=0; i<elements.length; i++){
-                            elements[i].remove();
-                        }
-                    """)
-                    
-                    # 方法4：等待元素可点击
-                    logging.info("Waiting for submit button to be clickable...")
-                    submit_button = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button.get_attribute("css")))
-                    )
-                    
-                    # 方法5：使用ActionChains点击
-                    logging.info("Attempting to click submit button using ActionChains...")
-                    ActionChains(driver).move_to_element(submit_button).click().perform()
+                    # 方法2：JavaScript点击
+                    logging.info("Attempting JavaScript click...")
+                    driver.execute_script("arguments[0].click();", submit_button)
                 except Exception as e:
-                    logging.error(f"All click attempts failed: {str(e)}")
-                    raise
+                    logging.warning(f"JavaScript click failed: {str(e)}")
+                    try:
+                        # 方法3：移除遮挡元素并重试
+                        logging.info("Removing overlays and retrying...")
+                        driver.execute_script("""
+                            var elements = document.querySelectorAll('[data-type="_mgwidget"], .overlay, .modal, .popup');
+                            for(var i=0; i<elements.length; i++){
+                                elements[i].remove();
+                            }
+                        """)
+
+                        # 滚动到元素
+                        driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
+                        time.sleep(1)
+
+                        # 等待元素可点击
+                        logging.info("Waiting for submit button to be clickable after scroll...")
+                        WebDriverWait(driver, 10).until(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button.get_attribute("css")))
+                        )
+
+                        # 使用ActionChains
+                        logging.info("Attempting ActionChains click...")
+                        ActionChains(driver).move_to_element(submit_button).click().perform()
+                    except Exception as e:
+                        logging.error(f"All click attempts failed: {str(e)}")
+                        raise
 
             logging.info("Submit button clicked successfully")
             logging.info("Waiting for submission to complete...")
@@ -218,7 +244,7 @@ class CommentSender:
         except Exception as e:
             logging.error(f"Failed to send comment: {str(e)}", exc_info=True)
             return False
-        
+
         finally:
             if driver:
                 logging.info("Cleaning up: closing browser...")
@@ -244,8 +270,5 @@ def send_comment(name: str, email: str, website: str, url: str, content: Optiona
         bool: True if comment was sent successfully, False otherwise
     """
     return CommentSender.send_comment(name, email, website, url, content)
-
-
-
 
 
