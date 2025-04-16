@@ -7,3 +7,4 @@ venv
 download
 mask*.png
 *.db
+*.egg-info
