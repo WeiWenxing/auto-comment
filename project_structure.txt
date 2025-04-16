@@ -1,0 +1,19 @@
+auto_comment/
+├── LICENSE           # 开源许可证文件
+├── README.md         # 项目文档
+├── setup.py         # 包安装配置
+├── requirements.txt  # 依赖列表
+├── tests/           # 测试目录
+│   ├── __init__.py
+│   ├── test_content.py
+│   ├── test_openai.py
+│   └── test_comment.py
+├── auto_comment/    # 主代码目录
+│   ├── __init__.py          # 只包含版本和公共接口导出
+│   ├── config.py            # 配置相关
+│   ├── content.py           # 内容提取相关
+│   ├── openai_client.py     # OpenAI接口相关
+│   ├── comment.py           # 评论功能相关
+│   └── exceptions.py        # 自定义异常类
+└── examples/        # 示例代码
+    └── demo.py
