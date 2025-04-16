@@ -33,10 +33,23 @@ def main():
         # 提取内容
         print(f"\nExtracting content from {args.url}...")
         content = ContentExtractor.extract(args.url)
-        print("\nExtracted content preview (first 200 chars):")
+        content_length = len(content)
+        print(f"\nExtracted content length: {content_length} characters")
+        print("\nExtracted content preview (first 500 chars):")
         print("-" * 50)
-        print(content[:200] + "...")
+        print(content[:500])
+        if content_length > 500:
+            print("...")
         print("-" * 50)
+
+        # 如果内容太少，给出警告
+        if content_length < 100:
+            print("\nWarning: Extracted content seems too short!")
+            if args.debug:
+                print("\nFull extracted content:")
+                print("-" * 50)
+                print(content)
+                print("-" * 50)
         
         # 生成评论
         print("\nGenerating comment using OpenAI...")
