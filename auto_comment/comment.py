@@ -59,78 +59,95 @@ class CommentSender:
         return None
 
     @staticmethod
-    def send(name: str, email: str, website: str, url: str) -> bool:
-        """Send comment to the target URL using browser automation."""
-        return CommentSender.send_with_content(name, email, website, url, None)
+    def send_comment(name: str, email: str, website: str, url: str, content: Optional[str] = None) -> bool:
+        """
+        Send comment to the target URL using browser automation.
 
-    @staticmethod
-    def send_with_content(name: str, email: str, website: str, url: str, content: Optional[str] = None) -> bool:
-        """Send comment to the target URL using browser automation with optional custom content."""
+        Args:
+            name: Commenter's name
+            email: Commenter's email
+            website: Commenter's website
+            url: Target URL to post comment
+            content: Optional comment content. If not provided, content will be auto-generated
+
+        Returns:
+            bool: True if comment was sent successfully, False otherwise
+        """
         if not all([name, email, website, url]):
             logging.error("Incomplete information provided")
             return False
-        
+
         try:
             options = webdriver.ChromeOptions()
             options.add_argument('--headless')
             driver = webdriver.Chrome(options=options)
-            
+
             try:
                 driver.get(url)
                 WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
-                
+
                 # 如果没有提供评论内容，则自动生成
                 if content is None:
                     page_content = ContentExtractor.extract(url)
                     comment = CommentGenerator.generate(page_content)
                 else:
                     comment = content
-                
+
                 # 查找并填写评论表单
                 name_field = CommentSender.find_element(driver, CommentSender.COMMON_COMMENT_SELECTORS['name_input'])
                 email_field = CommentSender.find_element(driver, CommentSender.COMMON_COMMENT_SELECTORS['email_input'])
                 website_field = CommentSender.find_element(driver, CommentSender.COMMON_COMMENT_SELECTORS['website_input'])
                 comment_field = CommentSender.find_element(driver, CommentSender.COMMON_COMMENT_SELECTORS['comment_input'])
                 submit_button = CommentSender.find_element(driver, CommentSender.COMMON_COMMENT_SELECTORS['submit_button'])
-                
+
                 if not all([name_field, email_field, comment_field, submit_button]):
                     raise CommentError("Could not find all required comment form fields")
-                
+
                 # 填写表单
                 name_field.send_keys(name)
                 email_field.send_keys(email)
                 if website_field:
                     website_field.send_keys(website)
                 comment_field.send_keys(comment)
-                
+
                 # 添加随机延迟，模拟人类行为
                 import random
                 import time
                 time.sleep(random.uniform(1, 3))
-                
+
                 # 提交评论
                 submit_button.click()
-                
+
                 # 等待提交完成
                 time.sleep(2)
-                
+
                 logging.info("Comment sent successfully")
                 return True
-                
+
             finally:
                 driver.quit()
-                
+
         except Exception as e:
             logging.error(f"Failed to send comment: {e}")
             return False
 
-def send_comment(name: str, email: str, website: str, url: str) -> bool:
-    """Public interface for sending comments."""
-    return CommentSender.send(name, email, website, url)
+# 模块级别的公共接口
+def send_comment(name: str, email: str, website: str, url: str, content: Optional[str] = None) -> bool:
+    """
+    Public interface for sending comments.
 
-def send_comment_with_content(name: str, email: str, website: str, url: str, content: str) -> bool:
-    """Public interface for sending comments with custom content."""
-    return CommentSender.send_with_content(name, email, website, url, content)
+    Args:
+        name: Commenter's name
+        email: Commenter's email
+        website: Commenter's website
+        url: Target URL to post comment
+        content: Optional comment content. If not provided, content will be auto-generated
+
+    Returns:
+        bool: True if comment was sent successfully, False otherwise
+    """
+    return CommentSender.send_comment(name, email, website, url, content)
+
 
