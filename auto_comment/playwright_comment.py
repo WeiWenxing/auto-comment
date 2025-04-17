@@ -94,7 +94,7 @@ class PlaywrightCommentSender:
                             }''', submit_button)
 
                     # 等待网络请求完成
-                    page.wait_for_load_state('networkidle')
+                    page.wait_for_load_state('load')
                     return True
 
             return False
@@ -124,7 +124,7 @@ class PlaywrightCommentSender:
                 page = context.new_page()
 
                 # 访问页面
-                page.goto(url, wait_until='networkidle')
+                page.goto(url, wait_until='load')
 
                 # 如果没有提供评论内容，则生成
                 if content is None:
