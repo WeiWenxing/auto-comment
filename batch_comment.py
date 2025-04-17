@@ -1,5 +1,6 @@
 import os
 import asyncio
+from asyncio import Semaphore
 import aiohttp
 from dotenv import load_dotenv
 from typing import List, Dict
@@ -10,6 +11,7 @@ from pathlib import Path
 from auto_comment import init_openai, send_comment
 from auto_comment.content import ContentExtractor
 from auto_comment.openai_client import CommentGenerator
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 # 配置日志
 logging.basicConfig(
@@ -21,58 +23,68 @@ logging.basicConfig(
     ]
 )
 
-async def process_url(url: str, name: str, email: str, website: str) -> Dict:
-    """异步处理单个URL的评论发送"""
-    try:
-        logging.info(f"Processing URL: {url}")
+async def process_url(url: str, name: str, email: str, website: str, semaphore: Semaphore) -> Dict:
+    """异步处理单个URL的评论发送，带有信号量控制和重试机制"""
+    async with semaphore:  # 使用信号量控制并发
+        try:
+            logging.info(f"Processing URL: {url}")
 
-        # 提取内容并生成评论
-        page_content = ContentExtractor.extract(url)
-        comment_content = CommentGenerator.generate(page_content)
+            # 提取内容并生成评论
+            page_content = ContentExtractor.extract(url)
+            comment_content = CommentGenerator.generate(page_content)
 
-        # 记录生成的评论内容
-        logging.info(f"Generated comment for {url}:")
-        logging.info("-" * 50)
-        logging.info(comment_content)
-        logging.info("-" * 50)
+            # 记录生成的评论内容
+            logging.info(f"Generated comment for {url}:")
+            logging.info("-" * 50)
+            logging.info(comment_content)
+            logging.info("-" * 50)
 
-        # 发送评论
-        result = await asyncio.to_thread(
-            send_comment,
-            name=name,
-            email=email,
-            website=website,
-            url=url,
-            content=comment_content
-        )
+            # 添加重试装饰器
+            @retry(
+                stop=stop_after_attempt(3),  # 最多重试3次
+                wait=wait_exponential(multiplier=1, min=4, max=10),  # 指数退避重试
+                reraise=True
+            )
+            def send_comment_with_retry():
+                return send_comment(
+                    name=name,
+                    email=email,
+                    website=website,
+                    url=url,
+                    content=comment_content
+                )
 
-        status = {
-            'url': url,
-            'success': bool(result),
-            'timestamp': datetime.now().isoformat(),
-            'details': result if isinstance(result, dict) else None,
-            'comment': comment_content  # 添加评论内容到状态中
-        }
+            # 发送评论
+            result = await asyncio.to_thread(send_comment_with_retry)
 
-        if result:
-            logging.info(f"Successfully commented on {url}")
-        else:
-            logging.error(f"Failed to comment on {url}")
+            status = {
+                'url': url,
+                'success': bool(result),
+                'timestamp': datetime.now().isoformat(),
+                'details': result if isinstance(result, dict) else None,
+                'comment': comment_content
+            }
 
-        return status
+            if result:
+                logging.info(f"Successfully commented on {url}")
+            else:
+                logging.error(f"Failed to comment on {url}")
 
-    except Exception as e:
-        logging.error(f"Error processing {url}: {str(e)}")
-        return {
-            'url': url,
-            'success': False,
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }
+            return status
+
+        except Exception as e:
+            logging.error(f"Error processing {url}: {str(e)}")
+            return {
+                'url': url,
+                'success': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
 
 async def batch_comment(urls: List[str], name: str, email: str, website: str) -> List[Dict]:
-    """异步处理所有URL"""
-    tasks = [process_url(url, name, email, website) for url in urls]
+    """异步处理所有URL，限制并发数量为1"""
+    semaphore = Semaphore(1)  # 将并发数改为1
+    tasks = [process_url(url, name, email, website, semaphore) for url in urls]
     return await asyncio.gather(*tasks)
 
 def load_urls(filepath: str) -> List[str]:
