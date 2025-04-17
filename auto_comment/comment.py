@@ -152,15 +152,11 @@ class CommentSender:
 
             driver = webdriver.Chrome(options=options)
             logging.debug("Chrome WebDriver initialized successfully")
-            driver.set_page_load_timeout(180)  # 增加页面加载超时时间
-            driver.implicitly_wait(60)  # 增加隐式等待时间
+            driver.set_page_load_timeout(30)  # 设置页面加载超时为30秒
 
             # 获取页面内容
             logging.info("Navigating to target URL...")
-            driver.get(url)
-            WebDriverWait(driver, 60).until(
-                lambda driver: driver.execute_script('return document.readyState') == 'complete'
-            )
+            driver.get(url)  # 删除整个WebDriverWait等待，直接依赖后面的元素等待
 
             # 生成评论内容
             if content is None:
@@ -224,6 +220,9 @@ def send_comment(name: str, email: str, website: str, url: str, content: Optiona
         bool: True if comment was sent successfully, False otherwise
     """
     return CommentSender.send_comment(name, email, website, url, content)
+
+
+
 
 
 
