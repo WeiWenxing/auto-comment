@@ -76,9 +76,12 @@ async def batch_comment(urls: List[str], name: str, email: str, website: str) ->
     return await asyncio.gather(*tasks)
 
 def load_urls(filepath: str) -> List[str]:
-    """从文件加载URL列表"""
+    """从文件加载URL列表并随机排序"""
+    import random
     with open(filepath, 'r', encoding='utf-8') as f:
-        return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+        urls = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    random.shuffle(urls)  # 随机打乱顺序
+    return urls
 
 def save_results(results: List[Dict], filepath: str):
     """保存处理结果到CSV文件，分别保存成功和失败的结果"""
