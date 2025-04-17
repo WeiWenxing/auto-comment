@@ -2,8 +2,6 @@ import logging
 import openai
 from typing import Optional
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 class OpenAIConfig:
     _instance = None
     

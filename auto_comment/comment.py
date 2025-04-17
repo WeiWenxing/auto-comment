@@ -17,12 +17,6 @@ from .openai_client import CommentGenerator
 from .exceptions import CommentError
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-# 设置更详细的日志格式
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(pathname)s:%(lineno)d:%(funcName)s - %(message)s'
-)
-
 class CommentSender:
     COMMON_COMMENT_SELECTORS = {
         'name': [
@@ -86,7 +80,7 @@ class CommentSender:
         return None
 
     @staticmethod
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+    @retry(stop=stop_after_attempt(1), wait=wait_exponential(multiplier=1, min=4, max=10))
     def submit_comment_form(driver, form_elements: dict, name: str, email: str, website: str, content: str) -> bool:
         """单独处理表单提交逻辑，包含重试机制"""
         try:
@@ -230,6 +224,7 @@ def send_comment(name: str, email: str, website: str, url: str, content: Optiona
         bool: True if comment was sent successfully, False otherwise
     """
     return CommentSender.send_comment(name, email, website, url, content)
+
 
 
 
