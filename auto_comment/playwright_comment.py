@@ -80,31 +80,17 @@ class PlaywrightCommentSender:
 
                 if submit_button:
                     logging.info("Submit button found, attempting to click...")
-                    # 尝试不同的点击方法
-                    try:
-                        # 方法1: 直接点击
-                        logging.debug("Attempting direct click...")
-                        submit_button.click()
-                        logging.info("Direct click successful")
-                    except Exception as e:
-                        logging.warning(f"Direct click failed: {str(e)}")
-                        try:
-                            # 方法2: JavaScript点击
-                            logging.debug("Attempting JavaScript click...")
-                            page.evaluate('(element) => element.click()', submit_button)
-                            logging.info("JavaScript click successful")
-                        except Exception as e:
-                            logging.warning(f"JavaScript click failed: {str(e)}")
-                            # 方法3: dispatch事件
-                            logging.debug("Attempting event dispatch...")
-                            page.evaluate('''(element) => {
-                                element.dispatchEvent(new MouseEvent('click', {
-                                    bubbles: true,
-                                    cancelable: true,
-                                    view: window
-                                }));
-                            }''', submit_button)
-                            logging.info("Event dispatch completed")
+                    # 使用dispatchEvent模拟真实点击
+                    logging.debug("Dispatching click event...")
+                    page.evaluate('''(element) => {
+                        const event = new MouseEvent('click', {
+                            view: window,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        element.dispatchEvent(event);
+                    }''', submit_button)
+                    logging.info("Event dispatch successful")
 
                     logging.debug("Waiting for page load state...")
                     # 等待网络请求完成
@@ -196,6 +182,8 @@ class PlaywrightCommentSender:
             finally:
                 if 'browser' in locals():
                     browser.close()
+
+
 
 
 
