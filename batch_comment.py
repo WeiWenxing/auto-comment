@@ -34,14 +34,15 @@ logging.basicConfig(
 async def process_url(url: str, name: str, email: str, website: str, semaphore: Semaphore) -> Dict:
     """异步处理单个URL的评论发送"""
     async with semaphore:
+        result = {
+            'url': url,
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'success': False,
+            'error': None
+        }
+
         try:
             logging.info(f"Processing URL: {url}")
-            result = {
-                'url': url,
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'success': False,
-                'error': None
-            }
 
             if not all([name, email, website]):
                 result['error'] = "Missing required commenter information"
@@ -50,6 +51,7 @@ async def process_url(url: str, name: str, email: str, website: str, semaphore: 
             # 提取内容并生成评论
             page_content = ContentExtractor.extract(url)
             comment_content = CommentGenerator.generate(page_content)
+            result['comment'] = comment_content  # 保存生成的评论内容
 
             # 记录生成的评论内容
             logging.info(f"Generated comment for {url}:")
@@ -57,33 +59,27 @@ async def process_url(url: str, name: str, email: str, website: str, semaphore: 
             logging.info(comment_content)
             logging.info("-" * 50)
 
-            # 在新的进程中运行Selenium，增加超时时间
+            # 在新的进程中运行Selenium
             loop = asyncio.get_event_loop()
-            result = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
-                    send_comment,
-                    name, email, website, url, comment_content
-                ),
-                timeout=120  # 增加超时时间到120秒
+            comment_result = await loop.run_in_executor(
+                None,
+                send_comment,
+                name, email, website, url, comment_content
             )
 
-            if not result:
-                raise Exception("Comment submission failed")
+            if not comment_result:
+                result['error'] = "Comment submission failed"
+                logging.error(f"Failed to comment on {url}: Comment submission failed")
+                return result
 
-            return {
-                'url': url,
-                'success': True,
-                'error': None
-            }
+            result['success'] = True
+            return result
 
         except Exception as e:
-            logging.error(f"Failed to comment on {url}")
-            return {
-                'url': url,
-                'success': False,
-                'error': str(e)
-            }
+            error_msg = str(e)
+            result['error'] = error_msg
+            logging.error(f"Failed to comment on {url}: {error_msg}")
+            return result
 
 async def batch_comment(urls: List[str], name: str, email: str, website: str) -> List[Dict]:
     """异步处理所有URL，使用合理的并发数"""
@@ -226,6 +222,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
