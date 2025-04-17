@@ -1,11 +1,22 @@
 import argparse
 import sys
+import logging
+from datetime import datetime
 import os
 from auto_comment import init_openai, send_comment
 from auto_comment.content import ContentExtractor
 from auto_comment.openai_client import CommentGenerator
 
 def main():
+    # 配置日志
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(pathname)s:%(lineno)d:%(funcName)s - %(message)s',
+        handlers=[
+            logging.FileHandler(f'playwright_test_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
+            logging.StreamHandler()
+        ]
+    )
     parser = argparse.ArgumentParser(description='Test auto_comment functionality')
 
     # OpenAI 配置参数
