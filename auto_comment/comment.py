@@ -131,32 +131,45 @@ class CommentSender:
         driver = None
         temp_dir = None
         try:
-            # 为每个实例创建唯一的临时目录
             temp_dir = tempfile.mkdtemp(prefix=f'chrome_user_data_{uuid.uuid4().hex}_')
-            logging.debug(f"Created temporary directory: {temp_dir}")
 
-            # 初始化浏览器选项
-            logging.info("Initializing Chrome WebDriver...")
             options = webdriver.ChromeOptions()
-            options.add_argument(f'--user-data-dir={temp_dir}')
+
+            # 基础配置
+            options.add_argument('--headless=new')
             options.add_argument('--no-sandbox')
-            options.add_argument('--headless')
             options.add_argument('--disable-dev-shm-usage')
+
+            # 添加稳定性配置
             options.add_argument('--disable-gpu')
-            options.add_argument('--disable-extensions')
-            options.add_argument('--disable-infobars')
-            options.add_argument('--disable-notifications')
-            options.add_argument('--disable-timeout')
-            options.add_argument('--page-load-strategy=eager')
-            options.add_argument(f'--remote-debugging-port={random.randint(9222, 9999)}')
+            options.add_argument('--remote-debugging-port=9222')  # 添加调试端口
+            options.add_argument(f'--user-data-dir={temp_dir}')  # 指定用户数据目录
 
-            driver = webdriver.Chrome(options=options)
-            logging.debug("Chrome WebDriver initialized successfully")
-            driver.set_page_load_timeout(30)
+            # 减少配置项，提高稳定性
+            options.add_argument('--window-size=1024,768')
+            options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
 
-            # 获取页面内容
-            logging.info("Navigating to target URL...")
-            driver.get(url)  # 删除整个WebDriverWait等待，直接依赖后面的元素等待
+            # 简化性能配置
+            prefs = {
+                'profile.managed_default_content_settings.images': 2,
+                'profile.managed_default_content_settings.javascript': 1,
+            }
+            options.add_experimental_option('prefs', prefs)
+
+            # 添加服务配置
+            service = webdriver.ChromeService(
+                log_output=os.path.join(os.getcwd(), 'chromedriver.log')
+            )
+
+            logging.info("Creating Chrome WebDriver instance...")
+            driver = webdriver.Chrome(
+                options=options,
+                service=service
+            )
+
+            # 移除快速检查，直接访问目标URL
+            logging.info(f"Navigating to target URL: {url}")
+            driver.get(url)
 
             # 生成评论内容
             if content is None:
@@ -228,6 +241,8 @@ def send_comment(name: str, email: str, website: str, url: str, content: Optiona
         bool: True if comment was sent successfully, False otherwise
     """
     return CommentSender.send_comment(name, email, website, url, content)
+
+
 
 
 
