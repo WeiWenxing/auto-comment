@@ -140,19 +140,19 @@ class CommentSender:
             options = webdriver.ChromeOptions()
             options.add_argument(f'--user-data-dir={temp_dir}')
             options.add_argument('--no-sandbox')
-            options.add_argument('--headless')  # 无头模式
+            options.add_argument('--headless')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-gpu')
             options.add_argument('--disable-extensions')
             options.add_argument('--disable-infobars')
             options.add_argument('--disable-notifications')
-            options.add_argument('--disable-timeout')  # 禁用超时
-            options.add_argument('--page-load-strategy=eager')  # 使用eager加载策略
-            options.add_argument(f'--remote-debugging-port={random.randint(9222, 9999)}')  # 随机调试端口
+            options.add_argument('--disable-timeout')
+            options.add_argument('--page-load-strategy=eager')
+            options.add_argument(f'--remote-debugging-port={random.randint(9222, 9999)}')
 
             driver = webdriver.Chrome(options=options)
             logging.debug("Chrome WebDriver initialized successfully")
-            driver.set_page_load_timeout(30)  # 设置页面加载超时为30秒
+            driver.set_page_load_timeout(30)
 
             # 获取页面内容
             logging.info("Navigating to target URL...")
@@ -186,10 +186,11 @@ class CommentSender:
             return CommentSender.submit_comment_form(driver, form_elements, name, email, website, content)
 
         except Exception as e:
-            logging.error(f"Error in comment submission process: {str(e)}", exc_info=True)  # 添加exc_info=True来显示完整堆栈
+            logging.error(f"Error in comment submission process: {str(e)}", exc_info=True)
             return False
 
         finally:
+            # 确保资源清理的顺序：先关闭driver，再删除临时目录
             if driver:
                 try:
                     driver.quit()
@@ -197,12 +198,19 @@ class CommentSender:
                 except Exception as e:
                     logging.error(f"Error while closing browser: {str(e)}")
 
-            if temp_dir:
+            if temp_dir and os.path.exists(temp_dir):
                 try:
                     import shutil
-                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    shutil.rmtree(temp_dir, ignore_errors=False)  # 改为False以便看到具体错误
+                    logging.info(f"Temporary directory cleaned up: {temp_dir}")
                 except Exception as e:
-                    logging.error(f"Error cleaning up temporary directory: {str(e)}")
+                    logging.error(f"Error cleaning up temporary directory {temp_dir}: {str(e)}")
+                    # 如果常规删除失败，尝试强制删除
+                    try:
+                        os.system(f'rm -rf "{temp_dir}"')
+                        logging.info(f"Temporary directory force cleaned up: {temp_dir}")
+                    except Exception as e2:
+                        logging.error(f"Force cleanup also failed for {temp_dir}: {str(e2)}")
 
 # 模块级别的公共接口
 def send_comment(name: str, email: str, website: str, url: str, content: Optional[str] = None) -> bool:
@@ -220,6 +228,7 @@ def send_comment(name: str, email: str, website: str, url: str, content: Optiona
         bool: True if comment was sent successfully, False otherwise
     """
     return CommentSender.send_comment(name, email, website, url, content)
+
 
 
 
