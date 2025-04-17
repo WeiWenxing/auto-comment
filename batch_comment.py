@@ -8,6 +8,8 @@ from datetime import datetime
 import logging
 from pathlib import Path
 from auto_comment import init_openai, send_comment
+from auto_comment.content import ContentExtractor
+from auto_comment.openai_client import CommentGenerator
 
 # 配置日志
 logging.basicConfig(
