@@ -9,7 +9,7 @@ from .exceptions import CommentError
 
 class PlaywrightCommentSender:
     """使用 Playwright 实现的评论发送器"""
-    
+
     COMMON_SELECTORS = {
         'name': [
             'input[name="author"]',
@@ -71,20 +71,32 @@ class PlaywrightCommentSender:
 
             # 提交表单
             submit_selector = form_selectors['submit']
+            logging.info(f"Attempting to submit form with selector: {submit_selector}")
+
             if submit_selector:
                 # 等待提交按钮可点击
+                logging.debug("Waiting for submit button to be visible...")
                 submit_button = page.wait_for_selector(submit_selector, state='visible')
+
                 if submit_button:
+                    logging.info("Submit button found, attempting to click...")
                     # 尝试不同的点击方法
                     try:
                         # 方法1: 直接点击
+                        logging.debug("Attempting direct click...")
                         submit_button.click()
-                    except Exception:
+                        logging.info("Direct click successful")
+                    except Exception as e:
+                        logging.warning(f"Direct click failed: {str(e)}")
                         try:
                             # 方法2: JavaScript点击
+                            logging.debug("Attempting JavaScript click...")
                             page.evaluate('(element) => element.click()', submit_button)
-                        except Exception:
+                            logging.info("JavaScript click successful")
+                        except Exception as e:
+                            logging.warning(f"JavaScript click failed: {str(e)}")
                             # 方法3: dispatch事件
+                            logging.debug("Attempting event dispatch...")
                             page.evaluate('''(element) => {
                                 element.dispatchEvent(new MouseEvent('click', {
                                     bubbles: true,
@@ -92,11 +104,17 @@ class PlaywrightCommentSender:
                                     view: window
                                 }));
                             }''', submit_button)
+                            logging.info("Event dispatch completed")
 
+                    logging.debug("Waiting for page load state...")
                     # 等待网络请求完成
-                    page.wait_for_load_state('load')
+                    page.wait_for_load_state('networkidle')
+                    logging.info("Page load completed after form submission")
                     return True
-
+                else:
+                    logging.error("Submit button not visible after wait")
+            else:
+                logging.error("No submit selector found")
             return False
 
         except Exception as e:
@@ -112,14 +130,26 @@ class PlaywrightCommentSender:
 
         with sync_playwright() as p:
             try:
-                # 启动浏览器
+                # 启动浏览器时添加更多真实的参数
                 browser = p.chromium.launch(
                     headless=True,
-                    args=['--no-sandbox', '--disable-setuid-sandbox']
+                    args=[
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-blink-features=AutomationControlled',
+                        '--disable-automation',
+                        '--disable-infobars',
+                    ]
                 )
                 context = browser.new_context(
                     viewport={'width': 1920, 'height': 1080},
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    locale='en-US',
+                    timezone_id='America/New_York',
+                    color_scheme='light',
+                    has_touch=True,
+                    is_mobile=False,
+                    device_scale_factor=1,
                 )
                 page = context.new_page()
 
@@ -141,7 +171,7 @@ class PlaywrightCommentSender:
                 }
 
                 # 检查必要字段
-                if not all([form_selectors['name'], form_selectors['email'], 
+                if not all([form_selectors['name'], form_selectors['email'],
                           form_selectors['comment'], form_selectors['submit']]):
                     raise CommentError("Could not find all required form fields")
 
@@ -160,3 +190,6 @@ class PlaywrightCommentSender:
             finally:
                 if 'browser' in locals():
                     browser.close()
+
+
+
