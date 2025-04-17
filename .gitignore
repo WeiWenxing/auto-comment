@@ -9,3 +9,5 @@ mask*.png
 *.db
 *.egg-info
 urls.txt
+*.log
+*.csv
