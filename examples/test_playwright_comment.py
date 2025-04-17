@@ -1,12 +1,24 @@
 import argparse
 import sys
+import logging
+from datetime import datetime
 from auto_comment import init_openai, send_comment_playwright
 from auto_comment.content import ContentExtractor
 from auto_comment.openai_client import CommentGenerator
 
 def main():
+    # 配置日志
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(pathname)s:%(lineno)d:%(funcName)s - %(message)s',
+        handlers=[
+            logging.FileHandler(f'playwright_test_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
+            logging.StreamHandler()
+        ]
+    )
+
     parser = argparse.ArgumentParser(description='Test Playwright-based comment submission')
-    
+
     # OpenAI 配置参数
     parser.add_argument('--baseurl', default='https://api.openai.com',
                       help='OpenAI API base URL')
@@ -14,7 +26,7 @@ def main():
                       help='OpenAI API key (required if content is not provided)')
     parser.add_argument('--model', default='gpt-3.5-turbo',
                       help='OpenAI model name')
-    
+
     # 评论必要参数
     parser.add_argument('--name', required=True,
                       help='Commenter name')
@@ -24,7 +36,7 @@ def main():
                       help='Commenter website')
     parser.add_argument('--url', required=True,
                       help='Target URL to post comment')
-    
+
     # 可选参数
     parser.add_argument('--content',
                       help='Comment content (if not provided, will be generated)')
@@ -41,7 +53,7 @@ def main():
             if not args.apikey:
                 print("Error: OpenAI API key is required when content is not provided")
                 sys.exit(1)
-            
+
             print("\nInitializing OpenAI...")
             init_openai(args.baseurl, args.apikey, args.model)
 

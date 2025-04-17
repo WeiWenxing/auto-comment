@@ -130,31 +130,37 @@ class PlaywrightCommentSender:
 
         with sync_playwright() as p:
             try:
-                # 启动浏览器时添加更多真实的参数
-                browser = p.chromium.launch(
-                    headless=True,
-                    args=[
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--disable-blink-features=AutomationControlled',
-                        '--disable-automation',
-                        '--disable-infobars',
-                    ]
-                )
+                # 使用无头模式并禁用不必要的功能
+                logging.info(f"Launching browser for URL: {url}")
+                browser = p.chromium.launch(headless=True)
                 context = browser.new_context(
-                    viewport={'width': 1920, 'height': 1080},
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    locale='en-US',
-                    timezone_id='America/New_York',
-                    color_scheme='light',
-                    has_touch=True,
+                    viewport={'width': 1280, 'height': 720},
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    java_script_enabled=True,
+                    has_touch=False,
                     is_mobile=False,
-                    device_scale_factor=1,
                 )
-                page = context.new_page()
 
-                # 访问页面
-                page.goto(url, wait_until='load')
+                page = context.new_page()
+                logging.info("Browser context and page created")
+
+                # 在导航前设置请求拦截
+                logging.debug("Setting up request interception")
+                page.route('**/*', lambda route: route.abort()
+                          if route.request.resource_type in ['image', 'stylesheet', 'font', 'media']
+                          else route.continue_())
+
+                # 使用 domcontentloaded 进行导航
+                logging.info(f"Navigating to URL: {url}")
+                try:
+                    page.goto(url, wait_until='domcontentloaded')
+                    logging.info("Page loaded successfully")
+                except Exception as e:
+                    logging.error(f"Failed to load page: {str(e)}")
+                    raise
+
+                # 只等待评论区域加载
+                page.wait_for_selector('form#commentform', state='visible', timeout=10000)
 
                 # 如果没有提供评论内容，则生成
                 if content is None:
@@ -190,6 +196,10 @@ class PlaywrightCommentSender:
             finally:
                 if 'browser' in locals():
                     browser.close()
+
+
+
+
 
 
 
