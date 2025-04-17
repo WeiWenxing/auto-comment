@@ -24,20 +24,32 @@ async def process_url(url: str, name: str, email: str, website: str) -> Dict:
     try:
         logging.info(f"Processing URL: {url}")
 
+        # 提取内容并生成评论
+        page_content = ContentExtractor.extract(url)
+        comment_content = CommentGenerator.generate(page_content)
+
+        # 记录生成的评论内容
+        logging.info(f"Generated comment for {url}:")
+        logging.info("-" * 50)
+        logging.info(comment_content)
+        logging.info("-" * 50)
+
         # 发送评论
         result = await asyncio.to_thread(
             send_comment,
             name=name,
             email=email,
             website=website,
-            url=url
+            url=url,
+            content=comment_content
         )
 
         status = {
             'url': url,
             'success': bool(result),
             'timestamp': datetime.now().isoformat(),
-            'details': result if isinstance(result, dict) else None
+            'details': result if isinstance(result, dict) else None,
+            'comment': comment_content  # 添加评论内容到状态中
         }
 
         if result:
@@ -87,12 +99,13 @@ def save_results(results: List[Dict], filepath: str):
         with open(successful_path, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
             # 写入表头
-            writer.writerow(['URL', '时间戳', '详情'])
+            writer.writerow(['URL', '时间戳', '评论内容', '详情'])
             # 写入数据
             for result in successful_results:
                 writer.writerow([
                     result['url'],
                     result['timestamp'],
+                    result.get('comment', ''),
                     json.dumps(result.get('details', ''), ensure_ascii=False)
                 ])
         logging.info(f"Successful results saved to: {successful_path}")
@@ -102,12 +115,13 @@ def save_results(results: List[Dict], filepath: str):
         with open(failed_path, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
             # 写入表头
-            writer.writerow(['URL', '时间戳', '错误信息'])
+            writer.writerow(['URL', '时间戳', '评论内容', '错误信息'])
             # 写入数据
             for result in failed_results:
                 writer.writerow([
                     result['url'],
                     result['timestamp'],
+                    result.get('comment', ''),
                     result.get('error', '')
                 ])
         logging.info(f"Failed results saved to: {failed_path}")
