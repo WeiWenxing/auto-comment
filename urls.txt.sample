@@ -1,0 +1,5 @@
+# 要评论的网址列表，每行一个
+https://example.com/post1
+https://example.com/post2
+https://example.com/post3
+# 以#开头的行会被忽略

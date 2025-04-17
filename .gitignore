@@ -8,3 +8,4 @@ download
 mask*.png
 *.db
 *.egg-info
+urls.txt
