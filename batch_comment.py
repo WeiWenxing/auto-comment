@@ -87,8 +87,50 @@ async def batch_comment(urls: List[str], name: str, email: str, website: str) ->
     max_concurrent = min(os.cpu_count() or 1, 4)  # 最多4个并发
     semaphore = Semaphore(max_concurrent)
 
+    # 创建一个锁用于同步 Selenium 操作
+    selenium_lock = asyncio.Lock()
+
+    async def process_url_with_lock(url: str) -> Dict:
+        # 并发进行内容提取和评论生成
+        async with semaphore:
+            result = {
+                'url': url,
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'success': False,
+                'error': None
+            }
+
+            try:
+                # 提取内容并生成评论
+                page_content = ContentExtractor.extract(url)
+                comment_content = CommentGenerator.generate(page_content)
+                result['comment'] = comment_content
+
+                # 串行执行 Selenium 操作
+                async with selenium_lock:
+                    loop = asyncio.get_event_loop()
+                    comment_result = await loop.run_in_executor(
+                        None,
+                        send_comment,
+                        name, email, website, url, comment_content
+                    )
+
+                    if not comment_result:
+                        result['error'] = "Comment submission failed"
+                        logging.error(f"Failed to comment on {url}: Comment submission failed")
+                        return result
+
+                result['success'] = True
+                return result
+
+            except Exception as e:
+                error_msg = str(e)
+                result['error'] = error_msg
+                logging.error(f"Failed to comment on {url}: {error_msg}")
+                return result
+
     logging.info(f"Starting batch processing with {max_concurrent} concurrent tasks")
-    tasks = [process_url(url, name, email, website, semaphore) for url in urls]
+    tasks = [process_url_with_lock(url) for url in urls]
     return await asyncio.gather(*tasks)
 
 def load_urls(filepath: str) -> List[str]:
@@ -222,6 +264,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
