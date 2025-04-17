@@ -12,10 +12,6 @@ def main():
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(pathname)s:%(lineno)d:%(funcName)s - %(message)s',
-        handlers=[
-            logging.FileHandler(f'playwright_test_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
-            logging.StreamHandler()
-        ]
     )
     parser = argparse.ArgumentParser(description='Test auto_comment functionality')
 

@@ -157,9 +157,7 @@ class CommentSender:
             options.add_experimental_option('prefs', prefs)
 
             # 添加服务配置
-            service = webdriver.ChromeService(
-                log_output=os.path.join(os.getcwd(), 'chromedriver.log')
-            )
+            service = webdriver.ChromeService()
 
             logging.info("Creating Chrome WebDriver instance...")
             driver = webdriver.Chrome(
