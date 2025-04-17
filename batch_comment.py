@@ -131,6 +131,14 @@ def save_results(results: List[Dict], filepath: str):
                 ])
         logging.info(f"Failed results saved to: {failed_path}")
 
+        # 保存失败的URL到txt文件
+        fail_urls_path = 'fail-urls.txt'
+        with open(fail_urls_path, 'w', encoding='utf-8') as f:
+            f.write("# 失败的URL列表\n")
+            for result in failed_results:
+                f.write(f"{result['url']}\n")
+        logging.info(f"Failed URLs saved to: {fail_urls_path}")
+
 async def main():
     # 加载环境变量
     load_dotenv()
