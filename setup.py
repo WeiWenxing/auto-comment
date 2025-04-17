@@ -7,11 +7,15 @@ setup(
     install_requires=[
         'requests>=2.28.0',
         'beautifulsoup4>=4.9.0',
-        'openai>=0.27.0',
+        'aiohttp>=3.8.0',
+        'lxml>=4.9.0',
+        'openai>=1.0.0',
         'selenium>=4.0.0',
-        'webdriver_manager>=3.8.0',  # 用于自动管理webdriver
-        'aiohttp>=3.8.0',           # 用于异步HTTP请求
-        'python-dotenv>=0.19.0'     # 用于环境变量管理
+        'webdriver_manager>=3.8.0',
+        'undetected-chromedriver>=3.5.0',
+        'python-dotenv>=0.19.0',
+        'asyncio>=3.4.3',
+        'tenacity>=8.0.0'
     ],
     author='Your Name',
     author_email='your.email@example.com',
@@ -28,4 +32,3 @@ setup(
     ],
     python_requires='>=3.9',
 )
-
