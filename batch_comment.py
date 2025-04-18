@@ -7,11 +7,34 @@ from typing import List, Dict
 import json
 from datetime import datetime
 import logging
+import random
 from pathlib import Path
 from auto_comment import init_openai, send_comment
 from auto_comment.content import ContentExtractor
 from auto_comment.openai_client import CommentGenerator
 from tenacity import retry, stop_after_attempt, wait_exponential
+
+# 定义名字和邮箱域名列表
+NAMES = [
+    'Alex', 'Amy', 'Ben', 'Eva', 'Finn',
+    'Gray', 'Hope', 'Jack', 'Kate', 'Luke',
+    'Max', 'Mia', 'Nick', 'Noah', 'Ryan',
+    'Sam', 'Sky', 'Tia', 'Viva', 'Zara'
+]
+
+EMAIL_DOMAINS = [
+    '@gmail.com',
+    '@yahoo.com',
+    '@hotmail.com',
+    '@outlook.com',
+    '@aol.com'
+]
+
+def get_random_commenter_info() -> tuple:
+    """生成随机的评论者名字和邮箱"""
+    name = random.choice(NAMES)
+    email = name.lower() + random.choice(EMAIL_DOMAINS)
+    return name, email
 
 # 加载环境变量
 load_dotenv()
@@ -31,57 +54,7 @@ logging.basicConfig(
     ]
 )
 
-async def process_url(url: str, name: str, email: str, website: str, semaphore: Semaphore) -> Dict:
-    """异步处理单个URL的评论发送"""
-    async with semaphore:
-        result = {
-            'url': url,
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'success': False,
-            'error': None
-        }
-
-        try:
-            logging.info(f"Processing URL: {url}")
-
-            if not all([name, email, website]):
-                result['error'] = "Missing required commenter information"
-                return result
-
-            # 提取内容并生成评论
-            page_content = ContentExtractor.extract(url)
-            comment_content = CommentGenerator.generate(page_content)
-            result['comment'] = comment_content  # 保存生成的评论内容
-
-            # 记录生成的评论内容
-            logging.info(f"Generated comment for {url}:")
-            logging.info("-" * 50)
-            logging.info(comment_content)
-            logging.info("-" * 50)
-
-            # 在新的进程中运行Selenium
-            loop = asyncio.get_event_loop()
-            comment_result = await loop.run_in_executor(
-                None,
-                send_comment,
-                name, email, website, url, comment_content
-            )
-
-            if not comment_result:
-                result['error'] = "Comment submission failed"
-                logging.error(f"Failed to comment on {url}: Comment submission failed")
-                return result
-
-            result['success'] = True
-            return result
-
-        except Exception as e:
-            error_msg = str(e)
-            result['error'] = error_msg
-            logging.error(f"Failed to comment on {url}: {error_msg}")
-            return result
-
-async def batch_comment(urls: List[str], name: str, email: str, website: str) -> List[Dict]:
+async def batch_comment(urls: List[str], website: str) -> List[Dict]:
     """异步处理所有URL，使用合理的并发数"""
     # 设置合理的并发数，避免资源耗尽
     max_concurrent = min(os.cpu_count() or 1, 4)  # 最多4个并发
@@ -108,6 +81,7 @@ async def batch_comment(urls: List[str], name: str, email: str, website: str) ->
 
                 # 串行执行 Selenium 操作
                 async with selenium_lock:
+                    name, email = get_random_commenter_info()
                     loop = asyncio.get_event_loop()
                     comment_result = await loop.run_in_executor(
                         None,
@@ -212,16 +186,12 @@ async def main():
     apikey = os.getenv('OPENAI_API_KEY')
     model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
 
-    name = os.getenv('COMMENTER_NAME')
-    email = os.getenv('COMMENTER_EMAIL')
     website = os.getenv('COMMENTER_WEBSITE')
 
     # 检查必要的环境变量
     required_vars = {
         'OPENAI_API_BASE': baseurl,
         'OPENAI_API_KEY': apikey,
-        'COMMENTER_NAME': name,
-        'COMMENTER_EMAIL': email,
         'COMMENTER_WEBSITE': website
     }
 
@@ -248,7 +218,7 @@ async def main():
     logging.info(f"Found {len(urls)} URLs to process")
 
     # 批量处理URL
-    results = await batch_comment(urls, name, email, website)
+    results = await batch_comment(urls, website)
 
     # 保存结果
     output_file = f'results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
@@ -264,6 +234,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
